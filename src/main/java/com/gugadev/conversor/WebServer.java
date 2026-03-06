@@ -1,0 +1,173 @@
+package com.gugadev.conversor;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gugadev.conversor.model.PairConversionResponse;
+import com.sun.net.httpserver.Headers;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Map;
+import java.util.concurrent.Executors;
+
+public class WebServer {
+    private static final Path FRONTEND_DIR = Path.of("frontend").toAbsolutePath().normalize();
+
+    private final ExchangeRateClient client;
+    private final ObjectMapper objectMapper;
+    private final int port;
+
+    public WebServer(String apiKey, int port) {
+        this.client = new ExchangeRateClient(apiKey);
+        this.objectMapper = new ObjectMapper();
+        this.port = port;
+    }
+
+    public void start() throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+        server.createContext("/api/convert", new ConvertHandler());
+        server.createContext("/", new StaticFileHandler());
+        server.setExecutor(Executors.newFixedThreadPool(8));
+        server.start();
+
+        System.out.printf("Servidor iniciado em http://localhost:%d%n", port);
+    }
+
+    private class ConvertHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange.getResponseHeaders());
+
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+                return;
+            }
+
+            if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                writeJson(exchange, 405, Map.of("message", "Metodo nao permitido"));
+                return;
+            }
+
+            try {
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                ConversionRequest request = objectMapper.readValue(body, ConversionRequest.class);
+
+                String from = normalizeCurrencyCode(request.from());
+                String to = normalizeCurrencyCode(request.to());
+                double amount = request.amount();
+
+                if (from == null || to == null || amount <= 0) {
+                    writeJson(exchange, 400, Map.of("message", "Dados invalidos. Informe moedas e valor maior que zero."));
+                    return;
+                }
+
+                PairConversionResponse result = client.convert(from, to, amount);
+                if (!"success".equalsIgnoreCase(result.result())) {
+                    writeJson(exchange, 502, Map.of("message", "Falha na API de cambio", "errorType", result.errorType()));
+                    return;
+                }
+
+                writeJson(exchange, 200, Map.of(
+                        "baseCode", result.baseCode(),
+                        "targetCode", result.targetCode(),
+                        "conversionRate", result.conversionRate(),
+                        "conversionResult", result.conversionResult(),
+                        "amount", amount
+                ));
+            } catch (JsonProcessingException ex) {
+                writeJson(exchange, 400, Map.of("message", "JSON invalido no corpo da requisicao"));
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                writeJson(exchange, 500, Map.of("message", "Requisicao interrompida"));
+            } catch (IOException ex) {
+                writeJson(exchange, 502, Map.of("message", "Erro ao consultar API externa", "detail", ex.getMessage()));
+            }
+        }
+    }
+
+    private class StaticFileHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1);
+                exchange.close();
+                return;
+            }
+
+            String rawPath = exchange.getRequestURI().getPath();
+            String relativePath = "/".equals(rawPath) ? "index.html" : rawPath.substring(1);
+
+            Path targetFile = FRONTEND_DIR.resolve(relativePath).normalize();
+            if (!targetFile.startsWith(FRONTEND_DIR) || !Files.exists(targetFile) || Files.isDirectory(targetFile)) {
+                writeText(exchange, 404, "Arquivo nao encontrado", "text/plain; charset=utf-8");
+                return;
+            }
+
+            byte[] content = Files.readAllBytes(targetFile);
+            String contentType = Files.probeContentType(targetFile);
+            if (contentType == null) {
+                contentType = inferContentType(targetFile.getFileName().toString());
+            }
+
+            exchange.getResponseHeaders().set("Content-Type", contentType);
+            exchange.sendResponseHeaders(200, content.length);
+            exchange.getResponseBody().write(content);
+            exchange.close();
+        }
+    }
+
+    private void writeJson(HttpExchange exchange, int statusCode, Object payload) throws IOException {
+        byte[] body = objectMapper.writeValueAsBytes(payload);
+        Headers headers = exchange.getResponseHeaders();
+        headers.set("Content-Type", "application/json; charset=utf-8");
+
+        exchange.sendResponseHeaders(statusCode, body.length);
+        exchange.getResponseBody().write(body);
+        exchange.close();
+    }
+
+    private void writeText(HttpExchange exchange, int statusCode, String message, String contentType) throws IOException {
+        byte[] body = message.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", contentType);
+        exchange.sendResponseHeaders(statusCode, body.length);
+        exchange.getResponseBody().write(body);
+        exchange.close();
+    }
+
+    private String normalizeCurrencyCode(String code) {
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+
+        return code.trim().toUpperCase();
+    }
+
+    private void addCorsHeaders(Headers headers) {
+        headers.set("Access-Control-Allow-Origin", "*");
+        headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+        headers.set("Access-Control-Allow-Headers", "Content-Type");
+    }
+
+    private String inferContentType(String fileName) {
+        if (fileName.endsWith(".html")) {
+            return "text/html; charset=utf-8";
+        }
+        if (fileName.endsWith(".css")) {
+            return "text/css; charset=utf-8";
+        }
+        if (fileName.endsWith(".js")) {
+            return "application/javascript; charset=utf-8";
+        }
+        return "application/octet-stream";
+    }
+
+    private record ConversionRequest(String from, String to, double amount) {
+    }
+}

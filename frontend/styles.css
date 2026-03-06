@@ -188,6 +188,13 @@ button:active {
   transform: translateY(0);
 }
 
+button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}
+
 .result {
   align-self: start;
 }
@@ -210,6 +217,14 @@ button:active {
 .result-note {
   margin: 0;
   color: var(--text-muted);
+}
+
+.result-value--error {
+  color: #a12727;
+}
+
+.result-note--error {
+  color: #a12727;
 }
 
 .rise {

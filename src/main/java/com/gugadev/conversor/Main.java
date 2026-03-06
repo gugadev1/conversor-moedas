@@ -17,6 +17,40 @@ public class Main {
             return;
         }
 
+        if (args.length > 0 && "--cli".equalsIgnoreCase(args[0])) {
+            runCli(apiKey);
+            return;
+        }
+
+        runWeb(apiKey);
+    }
+
+    private static void runWeb(String apiKey) {
+        int port = resolvePort();
+
+        try {
+            WebServer webServer = new WebServer(apiKey, port);
+            webServer.start();
+        } catch (IOException e) {
+            System.out.printf("Falha ao iniciar servidor web: %s%n", e.getMessage());
+        }
+    }
+
+    private static int resolvePort() {
+        String configuredPort = System.getenv("PORT");
+        if (configuredPort == null || configuredPort.isBlank()) {
+            return 8080;
+        }
+
+        try {
+            return Integer.parseInt(configuredPort);
+        } catch (NumberFormatException ex) {
+            System.out.println("Valor invalido em PORT. Usando porta 8080.");
+            return 8080;
+        }
+    }
+
+    private static void runCli(String apiKey) {
         Scanner scanner = new Scanner(System.in);
         ExchangeRateClient client = new ExchangeRateClient(apiKey);
 

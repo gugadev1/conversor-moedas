@@ -1,6 +1,6 @@
 # Conversor de Moedas (Java + ExchangeRate API)
 
-Projeto de estudo para aprender consumo de API em Java, convertendo valores entre moedas em uma aplicacao de console.
+Projeto de estudo para aprender consumo de API em Java, com backend HTTP e frontend web para converter valores entre moedas.
 
 ## Como a API funciona neste projeto
 
@@ -54,10 +54,18 @@ No Linux/macOS:
 export EXCHANGE_RATE_API_KEY="sua_chave_aqui"
 ```
 
-### 3. Rodar o projeto
+### 3. Rodar o projeto (modo web)
 
 ```bash
 mvn compile exec:java
+```
+
+Depois, acesse `http://localhost:8080`.
+
+### 4. Rodar no modo console (opcional)
+
+```bash
+mvn compile exec:java -Dexec.args="--cli"
 ```
 
 ## Conceitos de API que este projeto cobre

@@ -22,7 +22,7 @@
       </header>
 
       <div class="window-content">
-        <form class="converter card rise delay-1" action="#" method="get">
+        <form id="converter-form" class="converter card rise delay-1" action="#" method="post">
           <label for="from">Moeda de origem</label>
           <select id="from" name="from">
             <option>USD</option>
@@ -42,15 +42,18 @@
           <label for="amount">Valor</label>
           <input id="amount" name="amount" type="number" step="0.01" placeholder="100.00" />
 
-          <button type="button">Converter</button>
+          <button id="convert-button" type="submit">Converter</button>
         </form>
 
         <section class="result card rise delay-2" aria-live="polite">
           <p class="result-label">Resultado</p>
-          <p class="result-value">--</p>
+          <p id="result-value" class="result-value">--</p>
+          <p id="result-note" class="result-note">Preencha os campos para converter.</p>
         </section>
       </div>
     </section>
   </main>
+
+  <script src="./app.js" defer></script>
 </body>
 </html>
