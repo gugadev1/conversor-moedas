@@ -15,7 +15,13 @@
           <p>Conversor de Moedas</p>
         </div>
         <div class="titlebar__controls">
-          <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Alternar tema">Escuro</button>
+          <label class="theme-switch" for="theme-toggle" aria-label="Modo escuro">
+            <span class="theme-switch__label">Modo Escuro</span>
+            <input id="theme-toggle" class="theme-switch__input" type="checkbox" role="switch" aria-label="Ativar modo escuro" />
+            <span class="theme-switch__track" aria-hidden="true">
+              <span class="theme-switch__thumb"></span>
+            </span>
+          </label>
           <div class="window-actions" aria-hidden="true">
             <span></span>
             <span></span>

@@ -21,8 +21,8 @@ function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   if (themeToggle) {
     const isDark = theme === "dark";
-    themeToggle.textContent = isDark ? "Claro" : "Escuro";
-    themeToggle.setAttribute("aria-label", isDark ? "Alternar para tema claro" : "Alternar para tema escuro");
+    themeToggle.checked = isDark;
+    themeToggle.setAttribute("aria-label", isDark ? "Desativar modo escuro" : "Ativar modo escuro");
   }
 }
 
@@ -43,9 +43,8 @@ function setupThemeToggle() {
     return;
   }
 
-  themeToggle.addEventListener("click", () => {
-    const current = document.documentElement.getAttribute("data-theme") || "light";
-    const next = current === "dark" ? "light" : "dark";
+  themeToggle.addEventListener("change", () => {
+    const next = themeToggle.checked ? "dark" : "light";
     localStorage.setItem(THEME_STORAGE_KEY, next);
     applyTheme(next);
   });
