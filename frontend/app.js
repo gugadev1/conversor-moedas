@@ -5,6 +5,14 @@ const amountInput = document.querySelector("#amount");
 const convertButton = document.querySelector("#convert-button");
 const resultValue = document.querySelector("#result-value");
 const resultNote = document.querySelector("#result-note");
+const liveRatePair = document.querySelector("#live-rate-pair");
+const liveRateValue = document.querySelector("#live-rate-value");
+const liveRateNote = document.querySelector("#live-rate-note");
+
+const LIVE_RATE_INTERVAL_MS = 10000;
+
+let liveRateIntervalId = null;
+let isLiveRateRequestRunning = false;
 
 function formatCurrency(value, currencyCode) {
   try {
@@ -34,6 +42,84 @@ function showError(message) {
 function clearErrorStyles() {
   resultValue.classList.remove("result-value--error");
   resultNote.classList.remove("result-note--error");
+}
+
+function formatTime(isoDate) {
+  if (!isoDate) {
+    return "agora";
+  }
+
+  const parsedDate = new Date(isoDate);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "agora";
+  }
+
+  return parsedDate.toLocaleTimeString("pt-BR");
+}
+
+function resetLiveRateErrorStyles() {
+  liveRateValue.classList.remove("live-rate-value--error");
+  liveRateNote.classList.remove("result-note--error");
+}
+
+function showLiveRateError(message) {
+  liveRateValue.textContent = "Erro";
+  liveRateValue.classList.add("live-rate-value--error");
+  liveRateNote.textContent = message;
+  liveRateNote.classList.add("result-note--error");
+}
+
+async function refreshLiveRate() {
+  if (isLiveRateRequestRunning) {
+    return;
+  }
+
+  isLiveRateRequestRunning = true;
+  resetLiveRateErrorStyles();
+
+  const from = fromSelect.value;
+  const to = toSelect.value;
+
+  liveRatePair.textContent = `${from} -> ${to}`;
+  liveRateNote.textContent = "Atualizando cotacao...";
+
+  try {
+    const response = await fetch(
+      `/api/rate?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+      },
+    );
+
+    const data = await response.json();
+    if (!response.ok) {
+      showLiveRateError(data.message || "Falha ao obter cotacao atual.");
+      return;
+    }
+
+    resetLiveRateErrorStyles();
+    liveRateValue.textContent = Number(data.conversionRate).toFixed(6);
+    liveRateNote.textContent = `Atualizado as ${formatTime(data.updatedAt)}`;
+  } catch {
+    showLiveRateError("Nao foi possivel atualizar a cotacao.");
+  } finally {
+    isLiveRateRequestRunning = false;
+  }
+}
+
+function startLiveRatePolling() {
+  if (liveRateIntervalId !== null) {
+    clearInterval(liveRateIntervalId);
+  }
+
+  liveRateIntervalId = setInterval(() => {
+    if (document.visibilityState === "visible") {
+      refreshLiveRate();
+    }
+  }, LIVE_RATE_INTERVAL_MS);
 }
 
 form.addEventListener("submit", async (event) => {
@@ -79,3 +165,20 @@ form.addEventListener("submit", async (event) => {
     setLoading(false);
   }
 });
+
+fromSelect.addEventListener("change", () => {
+  refreshLiveRate();
+});
+
+toSelect.addEventListener("change", () => {
+  refreshLiveRate();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    refreshLiveRate();
+  }
+});
+
+refreshLiveRate();
+startLiveRatePolling();

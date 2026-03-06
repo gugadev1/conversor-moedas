@@ -2,6 +2,7 @@ com/gugadev/conversor/ExchangeRateClient.class
 com/gugadev/conversor/WebServer$StaticFileHandler.class
 com/gugadev/conversor/WebServer$ConversionRequest.class
 com/gugadev/conversor/WebServer.class
+com/gugadev/conversor/WebServer$RateHandler.class
 com/gugadev/conversor/WebServer$ConvertHandler.class
 com/gugadev/conversor/model/PairConversionResponse.class
 com/gugadev/conversor/Main.class

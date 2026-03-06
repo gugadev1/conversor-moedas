@@ -45,11 +45,20 @@
           <button id="convert-button" type="submit">Converter</button>
         </form>
 
-        <section class="result card rise delay-2" aria-live="polite">
-          <p class="result-label">Resultado</p>
-          <p id="result-value" class="result-value">--</p>
-          <p id="result-note" class="result-note">Preencha os campos para converter.</p>
-        </section>
+        <div class="side-panel">
+          <section class="result card rise delay-2" aria-live="polite">
+            <p class="result-label">Resultado</p>
+            <p id="result-value" class="result-value">--</p>
+            <p id="result-note" class="result-note">Preencha os campos para converter.</p>
+          </section>
+
+          <section class="live-rate card rise delay-3" aria-live="polite">
+            <p class="result-label">Cotacao Atual</p>
+            <p id="live-rate-pair" class="live-rate-pair">USD -> BRL</p>
+            <p id="live-rate-value" class="live-rate-value">--</p>
+            <p id="live-rate-note" class="result-note">Atualizando automaticamente.</p>
+          </section>
+        </div>
       </div>
     </section>
   </main>

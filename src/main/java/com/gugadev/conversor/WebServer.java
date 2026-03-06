@@ -9,10 +9,13 @@ import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
+import java.net.URLDecoder;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
@@ -32,6 +35,7 @@ public class WebServer {
     public void start() throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/api/convert", new ConvertHandler());
+        server.createContext("/api/rate", new RateHandler());
         server.createContext("/", new StaticFileHandler());
         server.setExecutor(Executors.newFixedThreadPool(8));
         server.start();
@@ -87,7 +91,64 @@ public class WebServer {
                 Thread.currentThread().interrupt();
                 writeJson(exchange, 500, Map.of("message", "Requisicao interrompida"));
             } catch (IOException ex) {
-                writeJson(exchange, 502, Map.of("message", "Erro ao consultar API externa", "detail", ex.getMessage()));
+                writeApiProviderError(exchange, ex);
+            }
+        }
+    }
+
+    private class RateHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange.getResponseHeaders());
+
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+                return;
+            }
+
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                writeJson(exchange, 405, Map.of("message", "Metodo nao permitido"));
+                return;
+            }
+
+            Map<String, String> queryParams = parseQuery(exchange.getRequestURI().getRawQuery());
+            String from = normalizeCurrencyCode(queryParams.get("from"));
+            String to = normalizeCurrencyCode(queryParams.get("to"));
+
+            if (from == null || to == null) {
+                writeJson(exchange, 400, Map.of("message", "Informe from e to na query string."));
+                return;
+            }
+
+            if (from.equals(to)) {
+                writeJson(exchange, 200, Map.of(
+                        "baseCode", from,
+                        "targetCode", to,
+                        "conversionRate", 1.0,
+                        "updatedAt", Instant.now().toString()
+                ));
+                return;
+            }
+
+            try {
+                PairConversionResponse result = client.convert(from, to, 1);
+                if (!"success".equalsIgnoreCase(result.result())) {
+                    writeJson(exchange, 502, Map.of("message", "Falha na API de cambio", "errorType", result.errorType()));
+                    return;
+                }
+
+                writeJson(exchange, 200, Map.of(
+                        "baseCode", result.baseCode(),
+                        "targetCode", result.targetCode(),
+                        "conversionRate", result.conversionRate(),
+                        "updatedAt", Instant.now().toString()
+                ));
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                writeJson(exchange, 500, Map.of("message", "Requisicao interrompida"));
+            } catch (IOException ex) {
+                writeApiProviderError(exchange, ex);
             }
         }
     }
@@ -151,8 +212,37 @@ public class WebServer {
 
     private void addCorsHeaders(Headers headers) {
         headers.set("Access-Control-Allow-Origin", "*");
-        headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+        headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         headers.set("Access-Control-Allow-Headers", "Content-Type");
+    }
+
+    private Map<String, String> parseQuery(String rawQuery) {
+        Map<String, String> query = new HashMap<>();
+        if (rawQuery == null || rawQuery.isBlank()) {
+            return query;
+        }
+
+        String[] pairs = rawQuery.split("&");
+        for (String pair : pairs) {
+            if (pair.isBlank()) {
+                continue;
+            }
+
+            String[] keyValue = pair.split("=", 2);
+            String key = decodeQueryComponent(keyValue[0]);
+            String value = keyValue.length > 1 ? decodeQueryComponent(keyValue[1]) : "";
+            query.put(key, value);
+        }
+
+        return query;
+    }
+
+    private String decodeQueryComponent(String value) {
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
+    }
+
+    private void writeApiProviderError(HttpExchange exchange, IOException ex) throws IOException {
+        writeJson(exchange, 502, Map.of("message", "Erro ao consultar API externa", "detail", ex.getMessage()));
     }
 
     private String inferContentType(String fileName) {

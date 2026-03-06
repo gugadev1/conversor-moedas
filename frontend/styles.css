@@ -128,6 +128,12 @@ body::after {
   padding: 20px;
 }
 
+.side-panel {
+  display: grid;
+  gap: 14px;
+  align-self: start;
+}
+
 .card {
   background: var(--surface-strong);
   border: 1px solid var(--stroke);
@@ -219,6 +225,28 @@ button:disabled {
   color: var(--text-muted);
 }
 
+.live-rate {
+  min-height: 136px;
+}
+
+.live-rate-pair {
+  margin: 10px 0 2px;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #23385f;
+}
+
+.live-rate-value {
+  margin: 6px 0;
+  font-size: clamp(1.8rem, 3vw, 2.2rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.live-rate-value--error {
+  color: #a12727;
+}
+
 .result-value--error {
   color: #a12727;
 }
@@ -241,6 +269,10 @@ button:disabled {
   animation-delay: 160ms;
 }
 
+.delay-3 {
+  animation-delay: 230ms;
+}
+
 @keyframes rise-in {
   to {
     opacity: 1;
@@ -255,6 +287,10 @@ button:disabled {
 
   .result {
     align-self: stretch;
+  }
+
+  .side-panel {
+    gap: 12px;
   }
 }
 
