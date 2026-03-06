@@ -11,6 +11,7 @@
   --text: #19243a;
   --text-muted: #51617f;
   --accent: #0a64d8;
+  --accent-ring: rgba(10, 100, 216, 0.16);
   --accent-strong: #084fb0;
   --field-bg: #ffffff;
   --field-border: rgba(22, 51, 102, 0.22);
@@ -36,6 +37,7 @@
   --text: #e2e8f0;
   --text-muted: #a3b3c9;
   --accent: #4a90ff;
+  --accent-ring: rgba(74, 144, 255, 0.22);
   --accent-strong: #2d6fdb;
   --field-bg: #101a2f;
   --field-border: rgba(148, 163, 184, 0.38);
@@ -176,7 +178,7 @@ body::after {
 }
 
 .theme-switch__input:focus-visible + .theme-switch__track {
-  box-shadow: inset 0 1px 2px rgba(25, 36, 58, 0.08), 0 0 0 3px rgba(10, 100, 216, 0.2);
+  box-shadow: inset 0 1px 2px rgba(25, 36, 58, 0.08), 0 0 0 3px var(--accent-ring);
 }
 
 :root[data-theme="dark"] .theme-switch__track {
@@ -272,7 +274,7 @@ input {
 select:focus,
 input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(10, 100, 216, 0.16);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 button {

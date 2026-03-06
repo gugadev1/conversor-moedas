@@ -1,101 +1,165 @@
 # Conversor de Moedas (Java + ExchangeRate API)
 
-Projeto de estudo para aprender consumo de API em Java, com backend HTTP e frontend web para converter valores entre moedas.
+Aplicacao de conversao de moedas com backend Java e interface web.
 
-## Como a API funciona neste projeto
+## Visao geral
 
-1. O usuario informa:
-- moeda de origem (ex: `USD`)
-- moeda de destino (ex: `BRL`)
-- valor (ex: `100`)
+O projeto possui dois modos:
 
-2. O app Java faz uma requisicao HTTP `GET` para este endpoint:
+- Modo web (padrao): inicia servidor HTTP, serve a UI e expoe endpoints de conversao/cotacao/moedas.
+- Modo CLI (opcional): fluxo no terminal para conversao manual.
 
-```txt
-https://v6.exchangerate-api.com/v6/SUA_API_KEY/pair/USD/BRL/100
-```
+A API externa utilizada e a [ExchangeRate-API](https://www.exchangerate-api.com/).
 
-3. A API responde JSON com taxa e resultado da conversao.
+## Funcionalidades
 
-4. O app mostra no terminal:
-- taxa de conversao (`conversion_rate`)
-- valor convertido (`conversion_result`)
+- Conversao de moedas em tempo real.
+- Exibicao de cotacao atual do par selecionado.
+- Lista completa de moedas suportadas carregada dinamicamente da API.
+- Tema claro/escuro com persistencia no navegador (`localStorage`).
+- Fallback no frontend para opcoes padrao de moedas caso a listagem de moedas fique indisponivel.
 
-## Tecnologias usadas
+## Stack
 
 - Java 17
 - Maven
-- `java.net.http.HttpClient` (requisicoes HTTP)
-- Jackson (`jackson-databind`) para converter JSON em objeto Java
+- `java.net.http.HttpClient`
+- Jackson (`jackson-databind`)
+- HTML, CSS e JavaScript (vanilla)
 
-## Estrutura
+## Estrutura do projeto
 
 ```txt
+frontend/
+  index.html
+  styles.css
+  app.js
 src/main/java/com/gugadev/conversor/
-	Main.java
-	ExchangeRateClient.java
-	model/PairConversionResponse.java
+  Main.java
+  ExchangeRateClient.java
+  WebServer.java
+  model/
+    PairConversionResponse.java
+    SupportedCodesResponse.java
 pom.xml
 ```
 
-## Como executar
+## Configuracao
 
-### 1. Criar sua API Key
+### 1. Crie sua API key
 
 1. Acesse: `https://www.exchangerate-api.com/`
 2. Crie uma conta
 3. Copie sua chave
 
-### 2. Exportar variavel de ambiente
+### 2. Exporte a variavel de ambiente
 
-No Linux/macOS:
+Linux/macOS:
 
 ```bash
 export EXCHANGE_RATE_API_KEY="sua_chave_aqui"
 ```
 
-### 3. Rodar o projeto (modo web)
+## Como executar
+
+### Modo web (padrao)
 
 ```bash
 mvn compile exec:java
 ```
 
-Depois, acesse `http://localhost:8080`.
+Acesse: `http://localhost:8080`
 
-### 4. Rodar no modo console (opcional)
+Porta customizada:
+
+```bash
+PORT=9090 mvn compile exec:java
+```
+
+### Modo CLI (opcional)
 
 ```bash
 mvn compile exec:java -Dexec.args="--cli"
 ```
 
-## Conceitos de API que este projeto cobre
+## Endpoints internos
 
-- Endpoint
-- Metodo HTTP (`GET`)
-- Status code HTTP
-- JSON de resposta
-- Autenticacao com API key
-- Tratamento de erros de rede e resposta da API
+### `POST /api/convert`
 
-## Exemplo de uso
+Converte um valor entre duas moedas.
 
-```txt
-=== Conversor de Moedas (Java + ExchangeRate API) ===
-Digite SAIR na moeda de origem para encerrar.
+Exemplo de body:
 
-Moeda de origem:
-USD
-Moeda de destino:
-BRL
-Valor:
-100
-Taxa USD -> BRL: 5.120000
-Resultado: 100.00 USD = 512.00 BRL
+```json
+{
+  "from": "USD",
+  "to": "BRL",
+  "amount": 100
+}
 ```
 
-## Melhorias futuras
+Resposta (sucesso):
 
-- Menu com opcoes pre-definidas
-- Historico de conversoes
-- Cache local de taxas
-- Versao web (backend Java + frontend)
+```json
+{
+  "baseCode": "USD",
+  "targetCode": "BRL",
+  "conversionRate": 5.12,
+  "conversionResult": 512.0,
+  "amount": 100.0
+}
+```
+
+### `GET /api/rate?from=USD&to=BRL`
+
+Retorna a cotacao atual do par.
+
+Resposta (sucesso):
+
+```json
+{
+  "baseCode": "USD",
+  "targetCode": "BRL",
+  "conversionRate": 5.12,
+  "updatedAt": "2026-03-06T00:00:00Z"
+}
+```
+
+### `GET /api/currencies`
+
+Retorna a lista de moedas suportadas pela ExchangeRate API.
+
+Resposta (sucesso):
+
+```json
+{
+  "currencies": [
+    { "code": "USD", "name": "United States Dollar" },
+    { "code": "BRL", "name": "Brazilian Real" }
+  ]
+}
+```
+
+Observacao: esse endpoint usa cache em memoria no backend por 6 horas para reduzir chamadas externas.
+
+## Comportamento de erros
+
+- Requisicoes invalidas retornam `400`.
+- Metodos HTTP nao permitidos retornam `405`.
+- Falhas na API externa retornam `502` com mensagem de detalhe.
+- Interrupcoes de execucao retornam `500`.
+
+## Desenvolvimento
+
+Compilar:
+
+```bash
+mvn compile
+```
+
+Executar com logs do servidor:
+
+```bash
+mvn compile exec:java
+```
+

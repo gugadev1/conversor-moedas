@@ -35,9 +35,36 @@ function resolveInitialTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+function readSavedThemePreference() {
+  const saved = localStorage.getItem(THEME_STORAGE_KEY);
+  return saved === "dark" || saved === "light" ? saved : null;
+}
+
+async function parseJsonSafely(response) {
+  const text = await response.text();
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 function setupThemeToggle() {
   const initialTheme = resolveInitialTheme();
   applyTheme(initialTheme);
+
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery.addEventListener("change", (event) => {
+    if (readSavedThemePreference() !== null) {
+      return;
+    }
+
+    applyTheme(event.matches ? "dark" : "light");
+  });
 
   if (!themeToggle) {
     return;
@@ -95,6 +122,9 @@ function populateCurrencySelects(currencies) {
 }
 
 async function loadSupportedCurrencies() {
+  fromSelect.disabled = true;
+  toSelect.disabled = true;
+
   try {
     const response = await fetch("/api/currencies", {
       method: "GET",
@@ -103,14 +133,17 @@ async function loadSupportedCurrencies() {
       },
     });
 
-    const data = await response.json();
-    if (!response.ok || !Array.isArray(data.currencies)) {
+    const data = await parseJsonSafely(response);
+    if (!response.ok || !data || !Array.isArray(data.currencies)) {
       return;
     }
 
     populateCurrencySelects(data.currencies);
   } catch {
     // Keeps default static options if currency endpoint is unavailable.
+  } finally {
+    fromSelect.disabled = false;
+    toSelect.disabled = false;
   }
 }
 
@@ -194,9 +227,14 @@ async function refreshLiveRate() {
       },
     );
 
-    const data = await response.json();
+    const data = await parseJsonSafely(response);
     if (!response.ok) {
-      showLiveRateError(data.message || "Falha ao obter cotacao atual.");
+      showLiveRateError(data?.message || "Falha ao obter cotacao atual.");
+      return;
+    }
+
+    if (!data || typeof data.conversionRate !== "number") {
+      showLiveRateError("Resposta invalida ao obter cotacao atual.");
       return;
     }
 
@@ -248,11 +286,16 @@ form.addEventListener("submit", async (event) => {
       body: JSON.stringify({ from, to, amount }),
     });
 
-    const data = await response.json();
+    const data = await parseJsonSafely(response);
 
     if (!response.ok) {
-      const errorMessage = data.message || "Falha ao converter moedas.";
+      const errorMessage = data?.message || "Falha ao converter moedas.";
       showError(errorMessage);
+      return;
+    }
+
+    if (!data || typeof data.conversionResult !== "number" || typeof data.conversionRate !== "number") {
+      showError("Resposta invalida ao converter moedas.");
       return;
     }
 

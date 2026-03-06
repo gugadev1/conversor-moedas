@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
@@ -242,7 +243,7 @@ public class WebServer {
             return null;
         }
 
-        return code.trim().toUpperCase();
+        return code.trim().toUpperCase(Locale.US);
     }
 
     private void addCorsHeaders(Headers headers) {
