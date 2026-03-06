@@ -15,16 +15,22 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
 public class WebServer {
     private static final Path FRONTEND_DIR = Path.of("frontend").toAbsolutePath().normalize();
+    private static final Duration CURRENCIES_CACHE_TTL = Duration.ofHours(6);
 
     private final ExchangeRateClient client;
     private final ObjectMapper objectMapper;
     private final int port;
+    private volatile List<Map<String, String>> currenciesCache;
+    private volatile Instant currenciesCacheAt;
 
     public WebServer(String apiKey, int port) {
         this.client = new ExchangeRateClient(apiKey);
@@ -36,11 +42,40 @@ public class WebServer {
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/api/convert", new ConvertHandler());
         server.createContext("/api/rate", new RateHandler());
+        server.createContext("/api/currencies", new CurrenciesHandler());
         server.createContext("/", new StaticFileHandler());
         server.setExecutor(Executors.newFixedThreadPool(8));
         server.start();
 
         System.out.printf("Servidor iniciado em http://localhost:%d%n", port);
+    }
+
+    private class CurrenciesHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            addCorsHeaders(exchange.getResponseHeaders());
+
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+                return;
+            }
+
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                writeJson(exchange, 405, Map.of("message", "Metodo nao permitido"));
+                return;
+            }
+
+            try {
+                List<Map<String, String>> currencies = getCurrenciesWithCache();
+                writeJson(exchange, 200, Map.of("currencies", currencies));
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                writeJson(exchange, 500, Map.of("message", "Requisicao interrompida"));
+            } catch (IOException ex) {
+                writeApiProviderError(exchange, ex);
+            }
+        }
     }
 
     private class ConvertHandler implements HttpHandler {
@@ -243,6 +278,28 @@ public class WebServer {
 
     private void writeApiProviderError(HttpExchange exchange, IOException ex) throws IOException {
         writeJson(exchange, 502, Map.of("message", "Erro ao consultar API externa", "detail", ex.getMessage()));
+    }
+
+    private synchronized List<Map<String, String>> getCurrenciesWithCache() throws IOException, InterruptedException {
+        if (currenciesCache != null
+                && currenciesCacheAt != null
+                && currenciesCacheAt.plus(CURRENCIES_CACHE_TTL).isAfter(Instant.now())) {
+            return currenciesCache;
+        }
+
+        List<ExchangeRateClient.CurrencyInfo> apiCurrencies = client.getSupportedCurrencies();
+        List<Map<String, String>> mappedCurrencies = new ArrayList<>();
+
+        for (ExchangeRateClient.CurrencyInfo currency : apiCurrencies) {
+            mappedCurrencies.add(Map.of(
+                    "code", currency.code(),
+                    "name", currency.name().isBlank() ? currency.code() : currency.name()
+            ));
+        }
+
+        currenciesCache = mappedCurrencies;
+        currenciesCacheAt = Instant.now();
+        return mappedCurrencies;
     }
 
     private String inferContentType(String fileName) {

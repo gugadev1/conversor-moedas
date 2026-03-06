@@ -50,6 +50,70 @@ function setupThemeToggle() {
   });
 }
 
+function buildCurrencyOption(currency) {
+  const option = document.createElement("option");
+  option.value = currency.code;
+  option.textContent = currency.name ? `${currency.code} - ${currency.name}` : currency.code;
+  return option;
+}
+
+function populateCurrencySelects(currencies) {
+  const uniqueCodes = new Set();
+  const normalized = currencies.filter((currency) => {
+    if (!currency || typeof currency.code !== "string") {
+      return false;
+    }
+
+    const code = currency.code.trim().toUpperCase();
+    if (!code || uniqueCodes.has(code)) {
+      return false;
+    }
+
+    uniqueCodes.add(code);
+    currency.code = code;
+    currency.name = typeof currency.name === "string" ? currency.name.trim() : "";
+    return true;
+  });
+
+  if (!normalized.length) {
+    return;
+  }
+
+  const previousFrom = fromSelect.value || "USD";
+  const previousTo = toSelect.value || "BRL";
+
+  fromSelect.innerHTML = "";
+  toSelect.innerHTML = "";
+
+  normalized.forEach((currency) => {
+    fromSelect.appendChild(buildCurrencyOption(currency));
+    toSelect.appendChild(buildCurrencyOption(currency));
+  });
+
+  fromSelect.value = uniqueCodes.has(previousFrom) ? previousFrom : (uniqueCodes.has("USD") ? "USD" : normalized[0].code);
+  toSelect.value = uniqueCodes.has(previousTo) ? previousTo : (uniqueCodes.has("BRL") ? "BRL" : normalized[0].code);
+}
+
+async function loadSupportedCurrencies() {
+  try {
+    const response = await fetch("/api/currencies", {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    const data = await response.json();
+    if (!response.ok || !Array.isArray(data.currencies)) {
+      return;
+    }
+
+    populateCurrencySelects(data.currencies);
+  } catch {
+    // Keeps default static options if currency endpoint is unavailable.
+  }
+}
+
 function formatCurrency(value, currencyCode) {
   try {
     return new Intl.NumberFormat("pt-BR", {
@@ -216,6 +280,11 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-setupThemeToggle();
-refreshLiveRate();
-startLiveRatePolling();
+async function initializeApp() {
+  setupThemeToggle();
+  await loadSupportedCurrencies();
+  refreshLiveRate();
+  startLiveRatePolling();
+}
+
+initializeApp();
