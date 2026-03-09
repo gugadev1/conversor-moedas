@@ -53,6 +53,21 @@ public class ExchangeRateClient {
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
+    ExchangeRateClient(String apiKey, HttpClient httpClient) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalArgumentException("apiKey não pode ser nulo ou vazio.");
+        }
+        if (httpClient == null) {
+            throw new IllegalArgumentException("httpClient não pode ser nulo.");
+        }
+
+        this.baseUrl = AppConfig.getString("api.baseUrl", DEFAULT_BASE_URL);
+        this.apiKey = apiKey;
+        this.httpClient = httpClient;
+        this.objectMapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
+
     /**
      * Realiza a conversão de um valor entre duas moedas utilizando a API de par de conversão.
      *
