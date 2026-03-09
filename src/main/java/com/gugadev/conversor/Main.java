@@ -51,59 +51,60 @@ public class Main {
     }
 
     private static void runCli(String apiKey) {
-        Scanner scanner = new Scanner(System.in);
-        ExchangeRateClient client = new ExchangeRateClient(apiKey);
+        try (Scanner scanner = new Scanner(System.in)) {
+            ExchangeRateClient client = new ExchangeRateClient(apiKey);
 
-        System.out.println("=== Conversor de Moedas (Java + ExchangeRate API) ===");
-        System.out.println("Digite SAIR na moeda de origem para encerrar.\n");
+            System.out.println("=== Conversor de Moedas (Java + ExchangeRate API) ===");
+            System.out.println("Digite SAIR na moeda de origem para encerrar.\n");
 
-        while (true) {
-            System.out.println("Moeda de origem:");
-            String from = scanner.nextLine().trim().toUpperCase();
-            if ("SAIR".equals(from)) {
-                break;
-            }
-
-            System.out.println("Moeda de destino:");
-            String to = scanner.nextLine().trim().toUpperCase();
-
-            System.out.println("Valor:");
-            String amountInput = scanner.nextLine().trim();
-
-            double amount;
-            try {
-                amount = Double.parseDouble(amountInput);
-                if (amount <= 0) {
-                    System.out.println("Informe um valor maior que zero.\n");
-                    continue;
+            while (true) {
+                System.out.println("Moeda de origem:");
+                String from = scanner.nextLine().trim().toUpperCase();
+                if ("SAIR".equals(from)) {
+                    break;
                 }
-            } catch (NumberFormatException ex) {
-                System.out.println("Valor invalido. Digite um numero.\n");
-                continue;
-            }
 
-            try {
-                PairConversionResponse result = client.convert(from, to, amount);
-                if (!"success".equalsIgnoreCase(result.result())) {
-                    System.out.printf("Falha da API. Motivo: %s%n%n", result.errorType());
+                System.out.println("Moeda de destino:");
+                String to = scanner.nextLine().trim().toUpperCase();
+
+                System.out.println("Valor:");
+                String amountInput = scanner.nextLine().trim();
+
+                double amount;
+                try {
+                    amount = Double.parseDouble(amountInput);
+                    if (amount <= 0) {
+                        System.out.println("Informe um valor maior que zero.\n");
+                        continue;
+                    }
+                } catch (NumberFormatException ex) {
+                    System.out.println("Valor invalido. Digite um numero.\n");
                     continue;
                 }
 
-                System.out.printf("Taxa %s -> %s: %.6f%n", result.baseCode(), result.targetCode(), result.conversionRate());
-                System.out.printf("Resultado: %.2f %s = %.2f %s%n%n",
-                        amount,
-                        result.baseCode(),
-                        result.conversionResult(),
-                        result.targetCode());
-            } catch (IOException e) {
-                System.out.printf("Erro de comunicacao com a API: %s%n%n", e.getMessage());
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                System.out.println("Execucao interrompida.");
-                return;
+                try {
+                    PairConversionResponse result = client.convert(from, to, amount);
+                    if (!"success".equalsIgnoreCase(result.result())) {
+                        System.out.printf("Falha da API. Motivo: %s%n%n", result.errorType());
+                        continue;
+                    }
+
+                    System.out.printf("Taxa %s -> %s: %.6f%n", result.baseCode(), result.targetCode(), result.conversionRate());
+                    System.out.printf("Resultado: %.2f %s = %.2f %s%n%n",
+                            amount,
+                            result.baseCode(),
+                            result.conversionResult(),
+                            result.targetCode());
+                } catch (IOException e) {
+                    System.out.printf("Erro de comunicacao com a API: %s%n%n", e.getMessage());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    System.out.println("Execucao interrompida.");
+                    return;
+                }
             }
+
+            System.out.println("Encerrando conversor.");
         }
-
-        System.out.println("Encerrando conversor.");
     }
 }
