@@ -26,6 +26,8 @@ import java.util.concurrent.Executors;
 public class WebServer {
     private static final Path FRONTEND_DIR = Path.of("frontend").toAbsolutePath().normalize();
     private static final Duration CURRENCIES_CACHE_TTL = Duration.ofHours(6);
+    private static final int THREAD_POOL_SIZE = 8;
+    private static final int HTTP_BACKLOG = 0;
 
     private final ExchangeRateClient client;
     private final ObjectMapper objectMapper;
@@ -34,18 +36,25 @@ public class WebServer {
     private volatile Instant currenciesCacheAt;
 
     public WebServer(String apiKey, int port) {
+                if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalArgumentException("apiKey não pode ser nulo ou vazio.");
+        }
+        if (port < 1 || port > 65_535) {
+            throw new IllegalArgumentException("Porta deve estar no intervalo 1-65535.");
+        }
+
         this.client = new ExchangeRateClient(apiKey);
         this.objectMapper = new ObjectMapper();
         this.port = port;
     }
 
     public void start() throws IOException {
-        HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+         HttpServer server = HttpServer.create(new InetSocketAddress(port), HTTP_BACKLOG);
         server.createContext("/api/convert", new ConvertHandler());
         server.createContext("/api/rate", new RateHandler());
         server.createContext("/api/currencies", new CurrenciesHandler());
         server.createContext("/", new StaticFileHandler());
-        server.setExecutor(Executors.newFixedThreadPool(8));
+        server.setExecutor(Executors.newFixedThreadPool(THREAD_POOL_SIZE));
         server.start();
 
         System.out.printf("Servidor iniciado em http://localhost:%d%n", port);
@@ -63,7 +72,7 @@ public class WebServer {
             }
 
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-                writeJson(exchange, 405, Map.of("message", "Metodo nao permitido"));
+                writeJson(exchange, 405, Map.of("message", "Método não permitido"));
                 return;
             }
 
@@ -72,7 +81,7 @@ public class WebServer {
                 writeJson(exchange, 200, Map.of("currencies", currencies));
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                writeJson(exchange, 500, Map.of("message", "Requisicao interrompida"));
+                writeJson(exchange, 500, Map.of("message", "Requisição interrompida"));
             } catch (IOException ex) {
                 writeApiProviderError(exchange, ex);
             }
@@ -91,7 +100,7 @@ public class WebServer {
             }
 
             if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                writeJson(exchange, 405, Map.of("message", "Metodo nao permitido"));
+                writeJson(exchange, 405, Map.of("message", "Método não permitido"));
                 return;
             }
 
@@ -104,13 +113,14 @@ public class WebServer {
                 double amount = request.amount();
 
                 if (from == null || to == null || amount <= 0) {
-                    writeJson(exchange, 400, Map.of("message", "Dados invalidos. Informe moedas e valor maior que zero."));
+                    writeJson(exchange, 400, Map.of("message", "Dados inválidos. Informe moedas e valor maior que zero."));
+
                     return;
                 }
 
                 PairConversionResponse result = client.convert(from, to, amount);
                 if (!"success".equalsIgnoreCase(result.result())) {
-                    writeJson(exchange, 502, Map.of("message", "Falha na API de cambio", "errorType", result.errorType()));
+                    writeJson(exchange, 502, Map.of("message", "Falha na API de câmbio", "errorType", result.errorType()));
                     return;
                 }
 
@@ -122,10 +132,10 @@ public class WebServer {
                         "amount", amount
                 ));
             } catch (JsonProcessingException ex) {
-                writeJson(exchange, 400, Map.of("message", "JSON invalido no corpo da requisicao"));
+                writeJson(exchange, 400, Map.of("message", "JSON inválido no corpo da requisição"));
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                writeJson(exchange, 500, Map.of("message", "Requisicao interrompida"));
+                writeJson(exchange, 500, Map.of("message", "Requisição interrompida"));
             } catch (IOException ex) {
                 writeApiProviderError(exchange, ex);
             }
@@ -203,7 +213,7 @@ public class WebServer {
 
             Path targetFile = FRONTEND_DIR.resolve(relativePath).normalize();
             if (!targetFile.startsWith(FRONTEND_DIR) || !Files.exists(targetFile) || Files.isDirectory(targetFile)) {
-                writeText(exchange, 404, "Arquivo nao encontrado", "text/plain; charset=utf-8");
+                writeText(exchange, 404, "Arquivo não encontrado", "text/plain; charset=utf-8");
                 return;
             }
 

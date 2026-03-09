@@ -25,6 +25,10 @@ public class ExchangeRateClient {
     private final ObjectMapper objectMapper;
 
     public ExchangeRateClient(String apiKey) {
+                if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalArgumentException("apiKey não pode ser nulo ou vazio.");
+        }
+
         this.apiKey = apiKey;
         this.httpClient = HttpClient.newHttpClient();
         this.objectMapper = new ObjectMapper()
@@ -33,6 +37,15 @@ public class ExchangeRateClient {
 
     public PairConversionResponse convert(String from, String to, double amount)
             throws IOException, InterruptedException {
+                    if (from == null || from.isBlank()) {
+            throw new IllegalArgumentException("Parâmetro 'from' não pode ser nulo ou vazio.");
+        }
+        if (to == null || to.isBlank()) {
+            throw new IllegalArgumentException("Parâmetro 'to' não pode ser nulo ou vazio.");
+        }
+        if (amount <= 0) {
+            throw new IllegalArgumentException("Parâmetro 'amount' deve ser maior que zero.");
+        }
         String encodedFrom = URLEncoder.encode(from, StandardCharsets.UTF_8);
         String encodedTo = URLEncoder.encode(to, StandardCharsets.UTF_8);
 
@@ -53,7 +66,7 @@ public class ExchangeRateClient {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != 200) {
-            throw new IOException("Erro HTTP ao chamar API: " + response.statusCode());
+            throw new IOException(String.format("Erro HTTP ao chamar API: %d", response.statusCode()));
         }
 
         return objectMapper.readValue(response.body(), PairConversionResponse.class);
@@ -69,12 +82,12 @@ public class ExchangeRateClient {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
-            throw new IOException("Erro HTTP ao chamar API: " + response.statusCode());
+            throw new IOException(String.format("Erro HTTP ao chamar API: %d", response.statusCode()));
         }
 
         SupportedCodesResponse payload = objectMapper.readValue(response.body(), SupportedCodesResponse.class);
         if (!"success".equalsIgnoreCase(payload.result())) {
-            throw new IOException("Falha da API ao listar moedas: " + payload.errorType());
+            throw new IOException(String.format("Falha da API ao listar moedas: %s", payload.errorType()));
         }
 
         List<CurrencyInfo> currencies = new ArrayList<>();

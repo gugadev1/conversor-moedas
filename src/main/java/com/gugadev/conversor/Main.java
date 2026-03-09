@@ -12,7 +12,7 @@ public class Main {
 
         String apiKey = System.getenv("EXCHANGE_RATE_API_KEY");
         if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("Defina a variavel EXCHANGE_RATE_API_KEY antes de executar.");
+            System.out.println("Defina a variável EXCHANGE_RATE_API_KEY antes de executar.");
             System.out.println("Exemplo: export EXCHANGE_RATE_API_KEY=seu_token");
             return;
         }
@@ -45,7 +45,7 @@ public class Main {
         try {
             return Integer.parseInt(configuredPort);
         } catch (NumberFormatException ex) {
-            System.out.println("Valor invalido em PORT. Usando porta 8080.");
+            System.out.println("Valor inválido em PORT. Usando porta 8080.");
             return 8080;
         }
     }
@@ -78,7 +78,7 @@ public class Main {
                         continue;
                     }
                 } catch (NumberFormatException ex) {
-                    System.out.println("Valor invalido. Digite um numero.\n");
+                    System.out.println("Valor inválido. Digite um número.\n");
                     continue;
                 }
 
@@ -96,10 +96,11 @@ public class Main {
                             result.conversionResult(),
                             result.targetCode());
                 } catch (IOException e) {
-                    System.out.printf("Erro de comunicacao com a API: %s%n%n", e.getMessage());
+                  System.out.printf("Erro de comunicação com a API: %s%n%n", e.getMessage());
+                } catch (InterruptedException e) {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    System.out.println("Execucao interrompida.");
+                    System.out.println("Execução interrompida.");
                     return;
                 }
             }
