@@ -150,7 +150,6 @@ public class Main {
                 } catch (IOException e) {
                     System.out.printf("Erro de comunicação com a API: %s%n%n", e.getMessage());
                 } catch (InterruptedException e) {
-                } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     System.out.println("Execução interrompida.");
                     return;
