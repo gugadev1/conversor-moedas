@@ -3,9 +3,7 @@ package com.gugadev.conversor.handler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gugadev.conversor.AppConfig;
 import com.gugadev.conversor.ExchangeRateClient;
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -18,19 +16,18 @@ import java.util.Map;
  * Handler para o endpoint {@code GET /api/currencies}.
  * Retorna a lista de moedas suportadas com cache configuravel.
  */
-public class CurrenciesHandler implements HttpHandler {
+public class CurrenciesHandler extends BaseHandler {
 
     private static final Duration CURRENCIES_CACHE_TTL =
-            Duration.ofHours(AppConfig.getInt("currencies.cache.ttl.hours", 6));
+            Duration.ofHours(AppConfig.getInt(AppConfig.KEY_CURRENCIES_CACHE_TTL_HOURS, AppConfig.DEFAULT_CACHE_TTL_HOURS));
 
     private final ExchangeRateClient client;
-    private final ObjectMapper objectMapper;
     private volatile List<Map<String, String>> currenciesCache;
     private volatile Instant currenciesCacheAt;
 
     public CurrenciesHandler(ExchangeRateClient client, ObjectMapper objectMapper) {
+        super(objectMapper);
         this.client = client;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -39,52 +36,20 @@ public class CurrenciesHandler implements HttpHandler {
             return;
         }
 
-        if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-            writeJson(exchange, 405, Map.of("message", "Metodo nao permitido"));
+        if (!METHOD_GET.equalsIgnoreCase(exchange.getRequestMethod())) {
+            writeJson(exchange, HTTP_METHOD_NOT_ALLOWED, Map.of("message", "Metodo nao permitido"));
             return;
         }
 
         try {
             List<Map<String, String>> currencies = getCurrenciesWithCache();
-            writeJson(exchange, 200, Map.of("currencies", currencies));
+            writeJson(exchange, HTTP_OK, Map.of("currencies", currencies));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            writeJson(exchange, 500, Map.of("message", "Requisicao interrompida"));
+            writeJson(exchange, HTTP_INTERNAL_SERVER_ERROR, Map.of("message", "Requisicao interrompida"));
         } catch (IOException ex) {
             writeApiProviderError(exchange, ex);
         }
-    }
-
-    private void writeJson(HttpExchange exchange, int statusCode, Object payload) throws IOException {
-        byte[] body = objectMapper.writeValueAsBytes(payload);
-        Headers headers = exchange.getResponseHeaders();
-        headers.set("Content-Type", "application/json; charset=utf-8");
-
-        exchange.sendResponseHeaders(statusCode, body.length);
-        exchange.getResponseBody().write(body);
-        exchange.close();
-    }
-
-    private void addCorsHeaders(Headers headers) {
-        headers.set("Access-Control-Allow-Origin", "*");
-        headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        headers.set("Access-Control-Allow-Headers", "Content-Type");
-    }
-
-    private boolean handleCorsPreflight(HttpExchange exchange) throws IOException {
-        addCorsHeaders(exchange.getResponseHeaders());
-
-        if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-            exchange.sendResponseHeaders(204, -1);
-            exchange.close();
-            return true;
-        }
-
-        return false;
-    }
-
-    private void writeApiProviderError(HttpExchange exchange, IOException ex) throws IOException {
-        writeJson(exchange, 502, Map.of("message", "Erro ao consultar API externa", "detail", ex.getMessage()));
     }
 
     private synchronized List<Map<String, String>> getCurrenciesWithCache() throws IOException, InterruptedException {

@@ -1,30 +1,31 @@
-# Conversor de Moedas (Java + ExchangeRate API)
+# Conversor de Moedas
 
-Aplicacao de conversao de moedas com backend Java e interface web.
+Aplicação de conversão de moedas com backend Java puro e interface web.
 
-## Visao geral
+## Visão geral
 
 O projeto possui dois modos:
 
-- Modo web (padrao): inicia servidor HTTP, serve a UI e expoe endpoints de conversao/cotacao/moedas.
-- Modo CLI (opcional): fluxo no terminal para conversao manual.
+- **Web (padrão):** inicia um servidor HTTP embutido, serve a interface frontend e expõe endpoints REST de conversão, cotação e listagem de moedas.
+- **CLI (opcional):** fluxo interativo no terminal para conversão manual.
 
-A API externa utilizada e a [ExchangeRate-API](https://www.exchangerate-api.com/).
+A API externa utilizada é a [ExchangeRate-API](https://www.exchangerate-api.com/).
 
 ## Funcionalidades
 
-- Conversao de moedas em tempo real.
-- Exibicao de cotacao atual do par selecionado.
-- Lista completa de moedas suportadas carregada dinamicamente da API.
-- Tema claro/escuro com persistencia no navegador (`localStorage`).
-- Fallback no frontend para opcoes padrao de moedas caso a listagem de moedas fique indisponivel.
+- Conversão de moedas em tempo real.
+- Exibição da cotação atual do par selecionado.
+- Lista completa de moedas suportadas carregada dinamicamente da API (com cache de 6 horas).
+- Tema claro/escuro com persistência no navegador (`localStorage`).
+- Fallback no frontend para opções padrão de moedas caso a listagem fique indisponível.
 
 ## Stack
 
-- Java 17
+- Java 21
 - Maven
-- `java.net.http.HttpClient`
+- `java.net.http.HttpClient` (JDK — sem frameworks externos)
 - Jackson (`jackson-databind`)
+- JUnit 5 + Mockito (testes)
 - HTML, CSS e JavaScript (vanilla)
 
 ## Estrutura do projeto
@@ -36,15 +37,24 @@ frontend/
   app.js
 src/main/java/com/gugadev/conversor/
   Main.java
+  AppConfig.java
   ExchangeRateClient.java
   WebServer.java
+  handler/
+    BaseHandler.java
+    ConvertHandler.java
+    CurrenciesHandler.java
+    RateHandler.java
+    StaticFileHandler.java
   model/
     PairConversionResponse.java
     SupportedCodesResponse.java
+src/main/resources/
+  application.properties
 pom.xml
 ```
 
-## Configuracao
+## Configuração
 
 ### 1. Crie sua API key
 
@@ -52,17 +62,27 @@ pom.xml
 2. Crie uma conta
 3. Copie sua chave
 
-### 2. Exporte a variavel de ambiente
-
-Linux/macOS:
+### 2. Exporte a variável de ambiente
 
 ```bash
 export EXCHANGE_RATE_API_KEY="sua_chave_aqui"
 ```
 
+### 3. Propriedades da aplicação
+
+O arquivo `application.properties` permite ajustar o comportamento sem recompilar:
+
+```properties
+api.baseUrl=https://v6.exchangerate-api.com/v6
+server.port.default=8080
+currencies.cache.ttl.hours=6
+```
+
+A variável de ambiente `PORT` tem prioridade sobre `server.port.default`.
+
 ## Como executar
 
-### Modo web (padrao)
+### Modo web (padrão)
 
 ```bash
 mvn compile exec:java
@@ -82,7 +102,7 @@ PORT=9090 mvn compile exec:java
 mvn compile exec:java -Dexec.args="--cli"
 ```
 
-## Endpoints internos
+## Endpoints
 
 ### `POST /api/convert`
 
@@ -112,7 +132,7 @@ Resposta (sucesso):
 
 ### `GET /api/rate?from=USD&to=BRL`
 
-Retorna a cotacao atual do par.
+Retorna a cotação atual do par.
 
 Resposta (sucesso):
 
@@ -127,27 +147,25 @@ Resposta (sucesso):
 
 ### `GET /api/currencies`
 
-Retorna a lista de moedas suportadas pela ExchangeRate API.
+Retorna a lista de moedas suportadas. Resultado cacheado em memória por 6 horas para reduzir chamadas externas.
 
 Resposta (sucesso):
 
 ```json
 {
   "currencies": [
-    { "code": "USD", "name": "United States Dollar" },
-    { "code": "BRL", "name": "Brazilian Real" }
+    { "code": "BRL", "name": "Brazilian Real" },
+    { "code": "USD", "name": "United States Dollar" }
   ]
 }
 ```
 
-Observacao: esse endpoint usa cache em memoria no backend por 6 horas para reduzir chamadas externas.
-
 ## Comportamento de erros
 
-- Requisicoes invalidas retornam `400`.
-- Metodos HTTP nao permitidos retornam `405`.
+- Requisições inválidas retornam `400`.
+- Métodos HTTP não permitidos retornam `405`.
 - Falhas na API externa retornam `502` com mensagem de detalhe.
-- Interrupcoes de execucao retornam `500`.
+- Interrupções de execução retornam `500`.
 
 ## Desenvolvimento
 
@@ -157,7 +175,12 @@ Compilar:
 mvn compile
 ```
 
-Executar com logs do servidor:
+Executar testes:
+
+```bash
+mvn test
+```
+
 
 ```bash
 mvn compile exec:java

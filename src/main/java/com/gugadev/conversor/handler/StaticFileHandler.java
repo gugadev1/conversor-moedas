@@ -13,6 +13,18 @@ import java.nio.file.Path;
  */
 public class StaticFileHandler implements HttpHandler {
 
+    private static final int    HTTP_OK                 = 200;
+    private static final int    HTTP_NOT_FOUND          = 404;
+    private static final int    HTTP_METHOD_NOT_ALLOWED = 405;
+
+    private static final String DEFAULT_FILE        = "index.html";
+    private static final String HEADER_CONTENT_TYPE = "Content-Type";
+    private static final String CONTENT_TYPE_PLAIN  = "text/plain; charset=utf-8";
+    private static final String CONTENT_TYPE_HTML   = "text/html; charset=utf-8";
+    private static final String CONTENT_TYPE_CSS    = "text/css; charset=utf-8";
+    private static final String CONTENT_TYPE_JS     = "application/javascript; charset=utf-8";
+    private static final String CONTENT_TYPE_BINARY = "application/octet-stream";
+
     private final Path frontendDir;
 
     public StaticFileHandler(Path frontendDir) {
@@ -22,17 +34,17 @@ public class StaticFileHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-            exchange.sendResponseHeaders(405, -1);
+            exchange.sendResponseHeaders(HTTP_METHOD_NOT_ALLOWED, -1);
             exchange.close();
             return;
         }
 
         String rawPath = exchange.getRequestURI().getPath();
-        String relativePath = "/".equals(rawPath) ? "index.html" : rawPath.substring(1);
+        String relativePath = "/".equals(rawPath) ? DEFAULT_FILE : rawPath.substring(1);
 
         Path targetFile = frontendDir.resolve(relativePath).normalize();
         if (!targetFile.startsWith(frontendDir) || !Files.exists(targetFile) || Files.isDirectory(targetFile)) {
-            writeText(exchange, 404, "Arquivo nao encontrado", "text/plain; charset=utf-8");
+            writeText(exchange, HTTP_NOT_FOUND, "Arquivo nao encontrado", CONTENT_TYPE_PLAIN);
             return;
         }
 
@@ -42,15 +54,15 @@ public class StaticFileHandler implements HttpHandler {
             contentType = inferContentType(targetFile.getFileName().toString());
         }
 
-        exchange.getResponseHeaders().set("Content-Type", contentType);
-        exchange.sendResponseHeaders(200, content.length);
+        exchange.getResponseHeaders().set(HEADER_CONTENT_TYPE, contentType);
+        exchange.sendResponseHeaders(HTTP_OK, content.length);
         exchange.getResponseBody().write(content);
         exchange.close();
     }
 
     private void writeText(HttpExchange exchange, int statusCode, String message, String contentType) throws IOException {
         byte[] body = message.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", contentType);
+        exchange.getResponseHeaders().set(HEADER_CONTENT_TYPE, contentType);
         exchange.sendResponseHeaders(statusCode, body.length);
         exchange.getResponseBody().write(body);
         exchange.close();
@@ -58,14 +70,14 @@ public class StaticFileHandler implements HttpHandler {
 
     private String inferContentType(String fileName) {
         if (fileName.endsWith(".html")) {
-            return "text/html; charset=utf-8";
+            return CONTENT_TYPE_HTML;
         }
         if (fileName.endsWith(".css")) {
-            return "text/css; charset=utf-8";
+            return CONTENT_TYPE_CSS;
         }
         if (fileName.endsWith(".js")) {
-            return "application/javascript; charset=utf-8";
+            return CONTENT_TYPE_JS;
         }
-        return "application/octet-stream";
+        return CONTENT_TYPE_BINARY;
     }
 }

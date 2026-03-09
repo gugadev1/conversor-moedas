@@ -1,12 +1,8 @@
 com/gugadev/conversor/ExchangeRateClient.class
+com/gugadev/conversor/handler/BaseHandler.class
 com/gugadev/conversor/model/SupportedCodesResponse.class
-com/gugadev/conversor/WebServer$StaticFileHandler.class
-com/gugadev/conversor/WebServer$ConvertHandler.class
 com/gugadev/conversor/AppConfig.class
 com/gugadev/conversor/Main.class
-com/gugadev/conversor/WebServer$CurrenciesHandler.class
 com/gugadev/conversor/ExchangeRateClient$CurrencyInfo.class
-com/gugadev/conversor/WebServer$ConversionRequest.class
 com/gugadev/conversor/WebServer.class
-com/gugadev/conversor/WebServer$RateHandler.class
 com/gugadev/conversor/model/PairConversionResponse.class

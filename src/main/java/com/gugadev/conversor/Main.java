@@ -24,6 +24,11 @@ import java.util.Scanner;
  */
 public class Main {
 
+    private static final String ENV_API_KEY      = "EXCHANGE_RATE_API_KEY";
+    private static final String ENV_PORT         = "PORT";
+    private static final String ARG_CLI_FLAG     = "--cli";
+    private static final String CLI_EXIT_COMMAND = "SAIR";
+
     /** Esta classe não pode ser instanciada. */
     private Main() {
     }
@@ -35,14 +40,14 @@ public class Main {
     public static void main(String[] args) {
         Locale.setDefault(Locale.US);
 
-        String apiKey = System.getenv("EXCHANGE_RATE_API_KEY");
+        String apiKey = System.getenv(ENV_API_KEY);
         if (apiKey == null || apiKey.isBlank()) {
             System.out.println("Defina a variável EXCHANGE_RATE_API_KEY antes de executar.");
             System.out.println("Exemplo: export EXCHANGE_RATE_API_KEY=seu_token");
             return;
         }
 
-        if (args.length > 0 && "--cli".equalsIgnoreCase(args[0])) {
+        if (args.length > 0 && ARG_CLI_FLAG.equalsIgnoreCase(args[0])) {
             runCli(apiKey);
             return;
         }
@@ -79,8 +84,8 @@ public class Main {
      * @return a porta resolvida
      */
     private static int resolvePort() {
-        String configuredPort = System.getenv("PORT");
-        int defaultPort = AppConfig.getInt("server.port.default", 8080);
+        String configuredPort = System.getenv(ENV_PORT);
+        int defaultPort = AppConfig.getInt(AppConfig.KEY_SERVER_PORT_DEFAULT, AppConfig.DEFAULT_SERVER_PORT);
         if (configuredPort == null || configuredPort.isBlank()) {
             return defaultPort;
         }
@@ -112,7 +117,7 @@ public class Main {
             while (true) {
                 System.out.println("Moeda de origem:");
                 String from = scanner.nextLine().trim().toUpperCase();
-                if ("SAIR".equals(from)) {
+                if (CLI_EXIT_COMMAND.equals(from)) {
                     break;
                 }
 

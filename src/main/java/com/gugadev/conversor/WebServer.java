@@ -29,9 +29,14 @@ import java.util.concurrent.Executors;
  */
 public class WebServer {
 
-    private static final Path FRONTEND_DIR = Path.of("frontend").toAbsolutePath().normalize();
-    private static final int THREAD_POOL_SIZE = 8;
-    private static final int HTTP_BACKLOG = 0;
+    private static final Path FRONTEND_DIR    = Path.of("frontend").toAbsolutePath().normalize();
+    private static final int  THREAD_POOL_SIZE = 8;
+    private static final int  HTTP_BACKLOG     = 0;
+
+    private static final String ROUTE_CONVERT    = "/api/convert";
+    private static final String ROUTE_RATE       = "/api/rate";
+    private static final String ROUTE_CURRENCIES = "/api/currencies";
+    private static final String ROUTE_STATIC     = "/";
 
     private final ExchangeRateClient client;
     private final ObjectMapper objectMapper;
@@ -64,10 +69,10 @@ public class WebServer {
      */
     public void start() throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(port), HTTP_BACKLOG);
-        server.createContext("/api/convert", new ConvertHandler(client, objectMapper));
-        server.createContext("/api/rate", new RateHandler(client, objectMapper));
-        server.createContext("/api/currencies", new CurrenciesHandler(client, objectMapper));
-        server.createContext("/", new StaticFileHandler(FRONTEND_DIR));
+        server.createContext(ROUTE_CONVERT,    new ConvertHandler(client, objectMapper));
+        server.createContext(ROUTE_RATE,       new RateHandler(client, objectMapper));
+        server.createContext(ROUTE_CURRENCIES, new CurrenciesHandler(client, objectMapper));
+        server.createContext(ROUTE_STATIC,     new StaticFileHandler(FRONTEND_DIR));
         server.setExecutor(Executors.newFixedThreadPool(THREAD_POOL_SIZE));
         server.start();
 

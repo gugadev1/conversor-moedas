@@ -1,6 +1,11 @@
+/workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/handler/ConvertHandler.java
 /workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/model/SupportedCodesResponse.java
+/workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/handler/RateHandler.java
+/workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/handler/CurrenciesHandler.java
 /workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/ExchangeRateClient.java
+/workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/handler/BaseHandler.java
 /workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/Main.java
+/workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/handler/StaticFileHandler.java
 /workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/AppConfig.java
 /workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/WebServer.java
 /workspaces/conversor-moedas/src/main/java/com/gugadev/conversor/model/PairConversionResponse.java

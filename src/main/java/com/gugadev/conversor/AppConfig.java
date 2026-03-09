@@ -78,4 +78,13 @@ public final class AppConfig {
             return defaultValue;
         }
     }
+
+    // --- Chaves de propriedade ---
+    public static final String KEY_API_BASE_URL               = "api.baseUrl";
+    public static final String KEY_SERVER_PORT_DEFAULT        = "server.port.default";
+    public static final String KEY_CURRENCIES_CACHE_TTL_HOURS = "currencies.cache.ttl.hours";
+
+    // --- Valores padrão de fallback ---
+    public static final int DEFAULT_SERVER_PORT     = 8080;
+    public static final int DEFAULT_CACHE_TTL_HOURS = 6;
 }

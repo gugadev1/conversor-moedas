@@ -28,7 +28,11 @@ import java.util.Locale;
  */
 public class ExchangeRateClient {
 
-    private static final String DEFAULT_BASE_URL = "https://v6.exchangerate-api.com/v6";
+    public static final String  API_RESULT_SUCCESS  = "success";
+    private static final String  DEFAULT_BASE_URL    = "https://v6.exchangerate-api.com/v6";
+    private static final int     HTTP_OK             = 200;
+    private static final int     CURRENCY_CODE_INDEX = 0;
+    private static final int     CURRENCY_NAME_INDEX = 1;
 
     private final String baseUrl;
     private final String apiKey;
@@ -46,7 +50,7 @@ public class ExchangeRateClient {
             throw new IllegalArgumentException("apiKey não pode ser nulo ou vazio.");
         }
 
-        this.baseUrl = AppConfig.getString("api.baseUrl", DEFAULT_BASE_URL);
+        this.baseUrl = AppConfig.getString(AppConfig.KEY_API_BASE_URL, DEFAULT_BASE_URL);
         this.apiKey = apiKey;
         this.httpClient = HttpClient.newHttpClient();
         this.objectMapper = new ObjectMapper()
@@ -61,7 +65,7 @@ public class ExchangeRateClient {
             throw new IllegalArgumentException("httpClient não pode ser nulo.");
         }
 
-        this.baseUrl = AppConfig.getString("api.baseUrl", DEFAULT_BASE_URL);
+        this.baseUrl = AppConfig.getString(AppConfig.KEY_API_BASE_URL, DEFAULT_BASE_URL);
         this.apiKey = apiKey;
         this.httpClient = httpClient;
         this.objectMapper = new ObjectMapper()
@@ -110,7 +114,7 @@ public class ExchangeRateClient {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        if (response.statusCode() != 200) {
+        if (response.statusCode() != HTTP_OK) {
             throw new IOException(String.format("Erro HTTP ao chamar API: %d", response.statusCode()));
         }
 
@@ -133,12 +137,12 @@ public class ExchangeRateClient {
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() != 200) {
+        if (response.statusCode() != HTTP_OK) {
             throw new IOException(String.format("Erro HTTP ao chamar API: %d", response.statusCode()));
         }
 
         SupportedCodesResponse payload = objectMapper.readValue(response.body(), SupportedCodesResponse.class);
-        if (!"success".equalsIgnoreCase(payload.result())) {
+        if (!API_RESULT_SUCCESS.equalsIgnoreCase(payload.result())) {
             throw new IOException(String.format("Falha da API ao listar moedas: %s", payload.errorType()));
         }
 
@@ -152,8 +156,8 @@ public class ExchangeRateClient {
                 continue;
             }
 
-            String code = entry.get(0);
-            String name = entry.size() > 1 ? entry.get(1) : code;
+            String code = entry.get(CURRENCY_CODE_INDEX);
+            String name = entry.size() > CURRENCY_NAME_INDEX ? entry.get(CURRENCY_NAME_INDEX) : code;
             if (code == null || code.isBlank()) {
                 continue;
             }
