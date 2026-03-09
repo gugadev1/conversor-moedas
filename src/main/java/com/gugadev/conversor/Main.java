@@ -6,7 +6,32 @@ import java.io.IOException;
 import java.util.Locale;
 import java.util.Scanner;
 
+/**
+ * Ponto de entrada da aplicação Conversor de Moedas.
+ *
+ * <p>Suporta dois modos de execução:</p>
+ * <ul>
+ *   <li><b>Web (padrão)</b> — inicia um servidor HTTP para servir a interface frontend e
+ *       os endpoints REST de conversão.</li>
+ *   <li><b>CLI</b> — modo interativo por linha de comando, ativado com o argumento
+ *       {@code --cli}.</li>
+ * </ul>
+ *
+ * <p>Requer a variável de ambiente {@code EXCHANGE_RATE_API_KEY} definida com uma
+ * chave válida da ExchangeRate-API.</p>
+ *
+ * @author gugadev
+ */
 public class Main {
+
+    /** Esta classe não pode ser instanciada. */
+    private Main() {
+    }
+    /**
+     * Método principal da aplicação.
+     *
+     * @param args argumentos de linha de comando; utilize {@code --cli} para modo interativo
+     */
     public static void main(String[] args) {
         Locale.setDefault(Locale.US);
 
@@ -25,6 +50,15 @@ public class Main {
         runWeb(apiKey);
     }
 
+    /**
+     * Inicia o servidor web HTTP na porta configurada.
+     *
+     * <p>A porta é resolvida a partir da variável de ambiente {@code PORT} ou,
+     * na sua ausência, do valor definido em {@code application.properties}
+     * (chave {@code server.port.default}), com fallback para {@code 8080}.</p>
+     *
+     * @param apiKey chave de acesso à ExchangeRate-API
+     */
     private static void runWeb(String apiKey) {
         int port = resolvePort();
 
@@ -36,20 +70,38 @@ public class Main {
         }
     }
 
+    /**
+     * Resolve a porta HTTP a ser utilizada pelo servidor.
+     *
+     * <p>Prioridade: variável de ambiente {@code PORT} &gt;
+     * propriedade {@code server.port.default} &gt; {@code 8080}.</p>
+     *
+     * @return a porta resolvida
+     */
     private static int resolvePort() {
         String configuredPort = System.getenv("PORT");
+        int defaultPort = AppConfig.getInt("server.port.default", 8080);
         if (configuredPort == null || configuredPort.isBlank()) {
-            return 8080;
+            return defaultPort;
         }
 
         try {
             return Integer.parseInt(configuredPort);
         } catch (NumberFormatException ex) {
-            System.out.println("Valor inválido em PORT. Usando porta 8080.");
-            return 8080;
+            System.out.printf("Valor inválido em PORT. Usando porta %d.%n", defaultPort);
+            return defaultPort;
         }
     }
 
+    /**
+     * Executa o conversor no modo interativo de linha de comando (CLI).
+     *
+     * <p>O usuário informa a moeda de origem, a moeda de destino e o valor
+     * desejado. O resultado é exibido no console. Digite {@code SAIR} na
+     * moeda de origem para encerrar.</p>
+     *
+     * @param apiKey chave de acesso à ExchangeRate-API
+     */
     private static void runCli(String apiKey) {
         try (Scanner scanner = new Scanner(System.in)) {
             ExchangeRateClient client = new ExchangeRateClient(apiKey);
@@ -96,7 +148,7 @@ public class Main {
                             result.conversionResult(),
                             result.targetCode());
                 } catch (IOException e) {
-                  System.out.printf("Erro de comunicação com a API: %s%n%n", e.getMessage());
+                    System.out.printf("Erro de comunicação com a API: %s%n%n", e.getMessage());
                 } catch (InterruptedException e) {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();

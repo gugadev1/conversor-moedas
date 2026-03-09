@@ -23,9 +23,25 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
+/**
+ * Servidor HTTP embutido que expõe endpoints REST para conversão de moedas
+ * e serve os arquivos estáticos da interface frontend.
+ *
+ * <h2>Endpoints disponíveis:</h2>
+ * <ul>
+ *   <li>{@code POST /api/convert} — converte um valor entre duas moedas</li>
+ *   <li>{@code GET  /api/rate}    — consulta a taxa de câmbio entre duas moedas</li>
+ *   <li>{@code GET  /api/currencies} — lista as moedas suportadas (com cache)</li>
+ *   <li>{@code GET  /}            — serve arquivos estáticos do diretório {@code frontend/}</li>
+ * </ul>
+ *
+ * @author gugadev
+ */
 public class WebServer {
+
     private static final Path FRONTEND_DIR = Path.of("frontend").toAbsolutePath().normalize();
-    private static final Duration CURRENCIES_CACHE_TTL = Duration.ofHours(6);
+    private static final Duration CURRENCIES_CACHE_TTL =
+            Duration.ofHours(AppConfig.getInt("currencies.cache.ttl.hours", 6));
     private static final int THREAD_POOL_SIZE = 8;
     private static final int HTTP_BACKLOG = 0;
 
@@ -35,8 +51,15 @@ public class WebServer {
     private volatile List<Map<String, String>> currenciesCache;
     private volatile Instant currenciesCacheAt;
 
+    /**
+     * Cria uma nova instância do servidor web.
+     *
+     * @param apiKey chave de acesso à ExchangeRate-API; não pode ser nula ou vazia
+     * @param port   porta TCP para escutar conexões (1–65535)
+     * @throws IllegalArgumentException se {@code apiKey} for nula/vazia ou {@code port} estiver fora do intervalo
+     */
     public WebServer(String apiKey, int port) {
-                if (apiKey == null || apiKey.isBlank()) {
+        if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalArgumentException("apiKey não pode ser nulo ou vazio.");
         }
         if (port < 1 || port > 65_535) {
@@ -48,8 +71,13 @@ public class WebServer {
         this.port = port;
     }
 
+    /**
+     * Inicia o servidor HTTP e registra os handlers de cada endpoint.
+     *
+     * @throws IOException se não for possível criar o socket do servidor
+     */
     public void start() throws IOException {
-         HttpServer server = HttpServer.create(new InetSocketAddress(port), HTTP_BACKLOG);
+        HttpServer server = HttpServer.create(new InetSocketAddress(port), HTTP_BACKLOG);
         server.createContext("/api/convert", new ConvertHandler());
         server.createContext("/api/rate", new RateHandler());
         server.createContext("/api/currencies", new CurrenciesHandler());
@@ -60,14 +88,14 @@ public class WebServer {
         System.out.printf("Servidor iniciado em http://localhost:%d%n", port);
     }
 
+    /**
+     * Handler para o endpoint {@code GET /api/currencies}.
+     * Retorna a lista de moedas suportadas com cache configurável.
+     */
     private class CurrenciesHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            addCorsHeaders(exchange.getResponseHeaders());
-
-            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-                exchange.sendResponseHeaders(204, -1);
-                exchange.close();
+            if (handleCorsPreflight(exchange)) {
                 return;
             }
 
@@ -88,14 +116,15 @@ public class WebServer {
         }
     }
 
+    /**
+     * Handler para o endpoint {@code POST /api/convert}.
+     * Recebe um JSON com {@code from}, {@code to} e {@code amount} e retorna
+     * o resultado da conversão.
+     */
     private class ConvertHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            addCorsHeaders(exchange.getResponseHeaders());
-
-            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-                exchange.sendResponseHeaders(204, -1);
-                exchange.close();
+            if (handleCorsPreflight(exchange)) {
                 return;
             }
 
@@ -114,7 +143,6 @@ public class WebServer {
 
                 if (from == null || to == null || amount <= 0) {
                     writeJson(exchange, 400, Map.of("message", "Dados inválidos. Informe moedas e valor maior que zero."));
-
                     return;
                 }
 
@@ -142,14 +170,15 @@ public class WebServer {
         }
     }
 
+    /**
+     * Handler para o endpoint {@code GET /api/rate}.
+     * Recebe os parâmetros {@code from} e {@code to} via query string e retorna
+     * a taxa de câmbio atual.
+     */
     private class RateHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            addCorsHeaders(exchange.getResponseHeaders());
-
-            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-                exchange.sendResponseHeaders(204, -1);
-                exchange.close();
+            if (handleCorsPreflight(exchange)) {
                 return;
             }
 
@@ -192,13 +221,17 @@ public class WebServer {
                 ));
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
-                writeJson(exchange, 500, Map.of("message", "Requisicao interrompida"));
+                writeJson(exchange, 500, Map.of("message", "Requisição interrompida"));
             } catch (IOException ex) {
                 writeApiProviderError(exchange, ex);
             }
         }
     }
 
+    /**
+     * Handler para servir arquivos estáticos do diretório {@code frontend/}.
+     * Requisições para {@code /} são redirecionadas para {@code index.html}.
+     */
     private class StaticFileHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
@@ -230,6 +263,14 @@ public class WebServer {
         }
     }
 
+    /**
+     * Serializa o payload como JSON e envia a resposta HTTP.
+     *
+     * @param exchange   o contexto da requisição HTTP
+     * @param statusCode o código de status HTTP
+     * @param payload    o objeto a ser serializado como JSON
+     * @throws IOException em caso de erro de escrita
+     */
     private void writeJson(HttpExchange exchange, int statusCode, Object payload) throws IOException {
         byte[] body = objectMapper.writeValueAsBytes(payload);
         Headers headers = exchange.getResponseHeaders();
@@ -240,6 +281,15 @@ public class WebServer {
         exchange.close();
     }
 
+    /**
+     * Envia uma resposta HTTP com corpo de texto simples.
+     *
+     * @param exchange    o contexto da requisição HTTP
+     * @param statusCode  o código de status HTTP
+     * @param message     o texto da resposta
+     * @param contentType o valor do header {@code Content-Type}
+     * @throws IOException em caso de erro de escrita
+     */
     private void writeText(HttpExchange exchange, int statusCode, String message, String contentType) throws IOException {
         byte[] body = message.getBytes(StandardCharsets.UTF_8);
         exchange.getResponseHeaders().set("Content-Type", contentType);
@@ -248,6 +298,12 @@ public class WebServer {
         exchange.close();
     }
 
+    /**
+     * Normaliza um código de moeda para letras maiúsculas sem espaços.
+     *
+     * @param code código da moeda informado pelo usuário
+     * @return o código normalizado ou {@code null} se estiver em branco
+     */
     private String normalizeCurrencyCode(String code) {
         if (code == null || code.isBlank()) {
             return null;
@@ -256,12 +312,43 @@ public class WebServer {
         return code.trim().toUpperCase(Locale.US);
     }
 
+    /**
+     * Adiciona os headers CORS à resposta.
+     *
+     * @param headers os headers da resposta HTTP
+     */
     private void addCorsHeaders(Headers headers) {
         headers.set("Access-Control-Allow-Origin", "*");
         headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         headers.set("Access-Control-Allow-Headers", "Content-Type");
     }
 
+    /**
+     * Verifica se a requisição é um preflight CORS ({@code OPTIONS}) e,
+     * em caso positivo, envia a resposta {@code 204 No Content}.
+     *
+     * @param exchange o contexto da requisição HTTP
+     * @return {@code true} se foi um preflight e a resposta já foi enviada
+     * @throws IOException em caso de erro de escrita
+     */
+    private boolean handleCorsPreflight(HttpExchange exchange) throws IOException {
+        addCorsHeaders(exchange.getResponseHeaders());
+
+        if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(204, -1);
+            exchange.close();
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Faz o parsing de uma query string HTTP em um mapa chave-valor.
+     *
+     * @param rawQuery a query string bruta (sem o {@code ?} inicial)
+     * @return mapa com os parâmetros decodificados
+     */
     private Map<String, String> parseQuery(String rawQuery) {
         Map<String, String> query = new HashMap<>();
         if (rawQuery == null || rawQuery.isBlank()) {
@@ -283,14 +370,36 @@ public class WebServer {
         return query;
     }
 
+    /**
+     * Decodifica um componente de query string em formato URL-encoded.
+     *
+     * @param value o componente codificado
+     * @return o valor decodificado em UTF-8
+     */
     private String decodeQueryComponent(String value) {
         return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
+    /**
+     * Envia uma resposta de erro {@code 502 Bad Gateway} indicando falha
+     * na comunicação com a API externa.
+     *
+     * @param exchange o contexto da requisição HTTP
+     * @param ex       a exceção capturada
+     * @throws IOException em caso de erro de escrita
+     */
     private void writeApiProviderError(HttpExchange exchange, IOException ex) throws IOException {
         writeJson(exchange, 502, Map.of("message", "Erro ao consultar API externa", "detail", ex.getMessage()));
     }
 
+    /**
+     * Retorna a lista de moedas suportadas, utilizando cache em memória
+     * com TTL configurável pela propriedade {@code currencies.cache.ttl.hours}.
+     *
+     * @return lista de mapas contendo {@code code} e {@code name} de cada moeda
+     * @throws IOException          em caso de erro de comunicação com a API
+     * @throws InterruptedException se a requisição for interrompida
+     */
     private synchronized List<Map<String, String>> getCurrenciesWithCache() throws IOException, InterruptedException {
         if (currenciesCache != null
                 && currenciesCacheAt != null
@@ -313,6 +422,12 @@ public class WebServer {
         return mappedCurrencies;
     }
 
+    /**
+     * Infere o tipo MIME de um arquivo com base na sua extensão.
+     *
+     * @param fileName nome do arquivo (ex.: "index.html")
+     * @return o tipo MIME correspondente ou {@code application/octet-stream} como fallback
+     */
     private String inferContentType(String fileName) {
         if (fileName.endsWith(".html")) {
             return "text/html; charset=utf-8";
@@ -326,6 +441,13 @@ public class WebServer {
         return "application/octet-stream";
     }
 
+    /**
+     * Representa o corpo JSON de uma requisição de conversão.
+     *
+     * @param from   código da moeda de origem
+     * @param to     código da moeda de destino
+     * @param amount valor a ser convertido
+     */
     private record ConversionRequest(String from, String to, double amount) {
     }
 }
